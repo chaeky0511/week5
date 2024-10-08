@@ -6,7 +6,7 @@ import time
 import Adafruit_DHT
 
 app = Flask(__name__)
-CORS(app)  # CORS 활성화
+CORS(app, resources={r"/*": {"origins": "*"}})  # 모든 출처 허용
 
 # GPIO 설정
 GPIO.setwarnings(False)
@@ -216,8 +216,10 @@ def toggle_led(led_index):
 @app.route('/change_mode/<string:new_mode>', methods=['GET'])
 def change_mode(new_mode):
     global mode
-    mode = new_mode
+    mode = new_mode  # 새로운 모드로 변경
+    print(f"Mode changed to: {mode}")  # 서버에서 로그로 모드 확인
     return jsonify({"message": f"모드가 {mode}"})
+
 
 @app.route('/update_data', methods=['GET'])
 def update_data():
