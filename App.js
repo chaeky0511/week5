@@ -150,22 +150,40 @@ const App = () => {
           <View style={styles.deviceContainer}>
             {/* 에어컨 */}
             <View style={styles.device}>
-              <Image source={require('./assets/images/aircon.png')} style={styles.deviceIcon} />
-              <Switch value={ledStates[0]} onValueChange={() => toggleLED(0)} disabled={mode === 'AUTO'} />
+              <Image 
+                source={require('./assets/images/aircon.png')} 
+                style={[styles.deviceIcon, { marginTop: 80 }]}/>
+              <Switch 
+                value={ledStates[0]} 
+                onValueChange={() => toggleLED(0)} 
+                disabled={mode === 'AUTO'} 
+              />
             </View>
             
             {/* 히터 */}
             <View style={styles.device}>
-              <Image source={require('./assets/images/heater.png')} style={styles.deviceIcon} />
-              <Switch value={ledStates[1]} onValueChange={() => toggleLED(1)} disabled={mode === 'AUTO'} />
+              <Image 
+                source={require('./assets/images/heater.png')} 
+                style={[styles.deviceIcon, { marginTop: 80 }]}/>
+              <Switch 
+                value={ledStates[1]} 
+                onValueChange={() => toggleLED(1)} 
+                disabled={mode === 'AUTO'} 
+              />
             </View>
-            
             {/* 제습기 */}
             <View style={styles.device}>
-              <Image source={require('./assets/images/hydrometer.png')} style={styles.deviceIcon} />
-              <Switch value={ledStates[2]} onValueChange={() => toggleLED(2)} disabled={mode === 'AUTO'} />
+              <Image 
+                source={require('./assets/images/hydrometer.png')} 
+                style={[styles.deviceIcon, { marginTop: 80 }]}/>
+              <Switch 
+                value={ledStates[2]} 
+                onValueChange={() => toggleLED(2)} 
+                disabled={mode === 'AUTO'} 
+              />
             </View>
           </View>
+
         </View>
       </View>
     </SafeAreaView>
