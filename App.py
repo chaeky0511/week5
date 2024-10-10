@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, render_template_string, jsonify
 from flask_cors import CORS  # CORS 추가
 import RPi.GPIO as GPIO
 import threading
@@ -22,7 +22,6 @@ GPIO.setup(ledPin[2], GPIO.OUT)
 
 # 터치 센서 핀 설정
 TOUCH_PIN = 27
-touchState = 0
 mode = "AUTO"  # 기본은 AUTO 모드
 GPIO.setup(TOUCH_PIN, GPIO.IN)
 
@@ -90,6 +89,7 @@ def monitor_touch():
         touch_previous_state = touch_current_state
         time.sleep(0.2)  # 짧은 간격으로 터치 상태를 체크 (200ms)
 
+
 # 초음파 거리 측정
 def measure_distance():
     global distance
@@ -151,110 +151,102 @@ html_page = '''<!doctype html>
         <div class="temperature-humidity">
             <div class="temperature-humidity-inner">
                 <div class="temperature">
-                    <img src="{{ url_for('static', filename='thermometer.png') }}" alt="온도계" class="icon1">
                     현재 온도: <span id="temperature">{{ current_temperature }}°C</span>
                 </div>
 
                 <div class="humidity">
-                    <img src="{{ url_for('static', filename='hydrometer.png') }}" alt="습도계" class="icon1">
                     현재 습도: <span id="humidity">{{ current_humidity }}%</span>
                 </div>
             </div>
 
             <div class="distance">
-                <h1>주변 침입자 거리</h1>
-                <p>현재 거리: <span id="distance">{{ distance | round(2) }}</span> cm</p>
+                <p>주변 침입자 거리: <span id="distance">{{ distance | round(2) }}</span> cm</p>
             </div>
         </div>
 
         <ul class="icon2">
             <li> 
                 <div class="text">에어컨</div>
-                <div class="icon_img">
-                    <img src="{{ url_for('static', filename='aircon.png') }}" alt="에어컨" class="icon">
-                    <div class="led {% if aircon_status %}on{% endif %}"></div>
-                </div>
-            </li>
-            <li> 
                 <div class="text">히터</div>
-                <div class="icon_img">
-                    <img src="{{ url_for('static', filename='heater.png') }}" alt="히터" class="icon">
-                    <div class="led {% if heater_status %}on{% endif %}"></div>
-                </div>
-            </li>
-            <li> 
                 <div class="text">제습기</div>
-                <div class="icon_img">
-                    <img src="{{ url_for('static', filename='dehumidifier.png') }}" alt="제습기" class="icon">
-                    <div class="led {% if dryer_status %}on{% endif %}"></div>
-                </div>
-            </li>
+
         </ul>
     </div>
+
+    <script>
+        function changeMode(newMode) {
+            fetch(`/change_mode/${newMode}`, { method: 'POST' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('네트워크 응답이 좋지 않습니다.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(data.message);
+                })
+                .catch(error => {
+                    console.error('모드 변경 오류:', error);
+                });
+        }
+
+        function updateData() {
+            fetch('/update_data')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('temperature').innerText = data.temperature + '°C';
+                    document.getElementById('humidity').innerText = data.humidity + '%';
+                    document.getElementById('distance').innerText = data.distance + ' cm';
+                })
+                .catch(error => console.error('데이터 업데이트 오류:', error));
+        }
+
+        setInterval(updateData, 2000);  // 2초마다 데이터 업데이트
+    </script>
 </body>
 </html>
 '''
 
 @app.route('/')
 def index():
-    # 온도 및 습도 읽기
-    humidity, temperature = Adafruit_DHT.read_retry(DHT_SENSOR, DHT_PIN)
-    current_temperature = temperature if temperature is not None else 0
-    current_humidity = humidity if humidity is not None else 0
-    return render_template_string(html_page, current_temperature=current_temperature,
-                                  current_humidity=current_humidity,
-                                  distance=distance, ledStates=ledStates, mode=mode)
+    global temperature, humidity, distance, mode, ledStates
+    return render_template_string(html_page, 
+                                  current_temperature=temperature,
+                                  current_humidity=humidity,
+                                  distance=distance,
+                                  mode=mode,
+                                  ledStates=ledStates)
 
-@app.route('/toggle_led/<int:led_index>', methods=['GET'])
+@app.route('/change_mode/<new_mode>', methods=['POST'])
+def change_mode(new_mode):
+    global mode
+    mode = new_mode
+    return jsonify({"message": f"모드가 {mode}로 변경되었습니다."})
+
+@app.route('/toggle_led/<int:led_index>', methods=['POST'])
 def toggle_led(led_index):
     global ledStates
     with gpio_lock:
         ledStates[led_index] ^= 1  # LED 상태 토글
         updateLeds()
-    return jsonify({"message": f"LED {led_index} {'ON' if ledStates[led_index] else 'OFF'}"})
-
-@app.route('/change_mode/<string:new_mode>', methods=['GET'])
-def change_mode(new_mode):
-    global mode
-    mode = new_mode  # 새로운 모드로 변경
-    print(f"Mode changed to: {mode}")  # 서버에서 로그로 모드 확인
-    return jsonify({"message": f"모드가 {mode}"})
-
+    return jsonify({"message": f"LED {led_index} 상태가 토글되었습니다."})
 
 @app.route('/update_data', methods=['GET'])
 def update_data():
-    global distance
-    # 온도 및 습도 읽기
+    global temperature, humidity, distance
     humidity, temperature = Adafruit_DHT.read_retry(DHT_SENSOR, DHT_PIN)
     current_temperature = temperature if temperature is not None else 0
     current_humidity = humidity if humidity is not None else 0
 
-    # 거리 측정
-    GPIO.output(TRIG_PIN, True)
-    time.sleep(0.00001)
-    GPIO.output(TRIG_PIN, False)
-
-    start_time = time.time()
-    stop_time = time.time()
-
-    while GPIO.input(ECHO_PIN) == 0:
-        start_time = time.time()
-
-    while GPIO.input(ECHO_PIN) == 1:
-        stop_time = time.time()
-
-    elapsed_time = stop_time - start_time
-    distance = (elapsed_time * 34300) / 2  # cm로 변환
-
     return jsonify({
         "temperature": current_temperature,
         "humidity": current_humidity,
-        "distance": distance
+        "distance": distance,
+        "mode": mode
     })
 
-# 스레드 시작
 if __name__ == '__main__':
-    threading.Thread(target=auto_mode).start()
-    threading.Thread(target=monitor_touch).start()
-    threading.Thread(target=measure_distance).start()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    threading.Thread(target=auto_mode, daemon=True).start()
+    threading.Thread(target=monitor_touch, daemon=True).start()
+    threading.Thread(target=measure_distance, daemon=True).start()
+    app.run(host='0.0.0.0', port=5000)  # 0.0.0.0는 모든 IP에서 접근 가능
