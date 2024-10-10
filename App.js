@@ -23,9 +23,10 @@ const App = () => {
         setTemperature(data.temperature);
         setHumidity(data.humidity);
         setDistance(data.distance);
+        setMode(data.mode);  // 모드 상태 업데이트
 
         // Auto 모드일 때 LED 상태 자동으로 조정
-        if (mode === 'AUTO') {
+        if (data.mode === 'AUTO') {
           adjustLEDStates(data.temperature, data.humidity);
         }
       } catch (error) {
@@ -62,7 +63,7 @@ const App = () => {
     // Manual 모드일 때만 LED를 토글
     if (mode === 'MANU') {
       try {
-          const response = await fetch(`http://172.20.10.14:5000/toggle_led/${index}`, { method: 'GET' });
+          const response = await fetch(`http://172.20.10.14:5000/toggle_led/${index}`, { method: 'POST' });
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
@@ -82,22 +83,19 @@ const App = () => {
     }
   };
 
-  function changeMode(newMode) {
-    fetch(`http://172.20.10.14:5000/change_mode/${newMode}`)  // URL 경로 수정
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`Network response was not ok: ${response.status}`);
-        }
-        return response.json();  // 응답을 JSON으로 변환
-      })
-      .then(data => {
-        console.log('Mode changed successfully:', data);
-        setMode(newMode);  // 모드 상태 업데이트
-      })
-      .catch(error => {
-        console.error('Error changing mode:', error);
-      });
-  }
+  const changeMode = async (newMode) => {
+    try {
+      const response = await fetch(`http://172.20.10.14:5000/change_mode/${newMode}`, { method: 'POST' });
+      if (!response.ok) {
+        throw new Error(`Network response was not ok: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log('Mode changed successfully:', data);
+      setMode(newMode);  // 모드 상태 업데이트
+    } catch (error) {
+      console.error('Error changing mode:', error);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -139,7 +137,7 @@ const App = () => {
               {distance <= 10 && (  // 10cm 이하일 때 경고 메시지 출력
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
                   <Image source={require('./assets/images/thief.png')} style={[styles.icon, { marginRight: 10 }]} />
-                  <Text style={[styles.text, { color: 'red', fontWeight: 'bold' }]}>
+                  <Text style={[styles.text, { color: 'red', fontWeight: 'bold' }]} >
                     침입자 감지!
                   </Text>
                 </View>
@@ -152,7 +150,7 @@ const App = () => {
             <View style={styles.device}>
               <Image 
                 source={require('./assets/images/aircon.png')} 
-                style={[styles.deviceIcon, { marginTop: 80 }]}/>
+                style={[styles.deviceIcon, { marginTop: 80 }]} />
               <Switch 
                 value={ledStates[0]} 
                 onValueChange={() => toggleLED(0)} 
@@ -164,7 +162,7 @@ const App = () => {
             <View style={styles.device}>
               <Image 
                 source={require('./assets/images/heater.png')} 
-                style={[styles.deviceIcon, { marginTop: 80 }]}/>
+                style={[styles.deviceIcon, { marginTop: 80 }]} />
               <Switch 
                 value={ledStates[1]} 
                 onValueChange={() => toggleLED(1)} 
@@ -175,7 +173,7 @@ const App = () => {
             <View style={styles.device}>
               <Image 
                 source={require('./assets/images/hydrometer.png')} 
-                style={[styles.deviceIcon, { marginTop: 80 }]}/>
+                style={[styles.deviceIcon, { marginTop: 80 }]} />
               <Switch 
                 value={ledStates[2]} 
                 onValueChange={() => toggleLED(2)} 
@@ -183,7 +181,6 @@ const App = () => {
               />
             </View>
           </View>
-
         </View>
       </View>
     </SafeAreaView>
